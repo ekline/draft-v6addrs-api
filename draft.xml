@@ -6,6 +6,10 @@
          "http://xml.resource.org/public/rfc/bibxml/reference.RFC.2119.xml">
 <!ENTITY RFC3552 SYSTEM
          "http://xml.resource.org/public/rfc/bibxml/reference.RFC.3552.xml">
+<!ENTITY RFC4429 SYSTEM
+         "http://xml.resource.org/public/rfc/bibxml/reference.RFC.4429.xml">
+<!ENTITY RFC7873 SYSTEM
+         "http://xml.resource.org/public/rfc/bibxml/reference.RFC.7873.xml">
 <!ENTITY RFC7934 SYSTEM
          "http://xml.resource.org/public/rfc/bibxml/reference.RFC.7934.xml">
 
@@ -60,7 +64,11 @@ IPv6 Multiple Addresses API
 
         <abstract>
             <t>
-IPv6, multiple addrs, API
+<xref target="RFC7934">RFC 7934</xref> recommends that general-purpose hosts
+be given multiple addresses for current and future application needs. This
+document describes the requirements for an API by which applications can
+request multiple addresses and the requirements for host operating systems
+supporting such an API.
             </t>
         </abstract>
     </front>
@@ -68,6 +76,14 @@ IPv6, multiple addrs, API
     <middle>
         <section title="Introduction">
             <t>
+<xref target="RFC7934">RFC 7934</xref> recommends that general-purpose hosts
+be given multiple addresses for current and future application needs. This
+document describes the requirements for an API by which applications can
+request multiple addresses and the requirements for host operating systems
+supporting such an API.
+            </t>
+            <t>
+XXX: expound a bit more?
             </t>
 
             <section title="Requirements Language">
@@ -79,6 +95,127 @@ interpreted as described in <xref target="RFC2119">RFC 2119</xref>.
             </section>
         </section>
 
+        <section title="Motivating Use Cases">
+            <section title="Ephemeral Addresses">
+                <t>
+Applications may want to obtain an address for some ephemeral use case.
+These may be desirable for privacy purposes, injecting some measure of
+randomness into communications, or for tracking application activity on a
+per-application basis. One hypothetical example might be a DNS recursive
+resolver that spreads queries across multiple addresses in order to increase
+its resistance to cache-poisoning attacks in situation where
+<xref target="RFC7873">DNS cookies</xref> may not be reliably available.
+                </t>
+                <t>
+In these cases, specific port reservations are not required. This may be
+because some explicit bind() will take place upon notification of the
+availability of a new address, or because a listening socket is bound to
+a wildcard address and the operating system is expected to deliver traffic
+at the listening port on the new address to the application.
+                </t>
+                <t>
+XXX: the cleanup from this, where other applications may have used an address
+and it cannot easily be freed may indicate that this use case is not really
+worth the effort. Alternatively, there might be some policy limiting the
+number of simultaneous "shared" addresses.
+                </t>
+            </section>
+
+            <section title="Exclusive-use Addresses">
+                <t>
+Some applications may need "exclusive-use addresses". In these use cases, the
+application wants to control both all traffic originating from and received
+at this address. Such traffic may be originated and received by the application
+itself, e.g. a 464xlat CLAT daemon. Alternatively, the application may wish to
+delegate the flow of traffic to another application, likely in coordination
+with other operating system functions, e.g. an application controlling a
+virtual machine (VM) for which it is attempting to arrange minimal IPv6
+network connectivity.
+                </t>
+            </section>
+        </section>
+
+        <section title="Implementation Requirements">
+            <section title="Meta-requirements">
+                <t>
+IPv6 addressing can change dynamically in response to changes in the network
+(i.e. due to events other than administrative action on the host itself). If
+IPv6 optimistic addresses (<xref target="RFC4429"/>) are used, an address might
+fail Duplicate Address Detection and need to be withdrawn from use. Similarly,
+IPv6 prefixes from which addresses are formed might become deprecated via
+Router Advertisements (and may also transition from deprecated back to valid)
+or they may expire when a delegated prefix expires (e.g. without a successful
+DHCPv6 renewal).
+                </t>
+                <t>
+Similarly, multiple IPv6 prefixes may be available for creating addresses via
+this API.  There may also be multiple network interfaces with advertised
+prefixes from which an address might be formed.
+                </t>
+                <t>
+It is a meta-requirement for this API that these complexities MUST be
+explicitly supported. Failure to do so would mean the spread of inflexible
+APIs yielding brittle applications, unable to adapt sensibly to changing
+network conditions.
+                </t>
+            </section>
+
+            <section title="Requirements for the API">
+                <t>
+request (type? timeout? callback_mechanism?)
+    yield result or error
+    result might be a token to associate future asynchronous notifications
+    TBD: request specific address? specific IID?
+release (request::result_type)
+    yield success or error
+callback_mechanism
+    must notify of address less (deprecation, DAD failures if optimistic addrs in use)
+    must notify of timeout in creating a usable address
+                </t>
+            </section>
+
+            <section title="Requirements for Supporting Operating Systems">
+                <t>
+Supporting host operating systems SHOULD support an asynchronous API. The
+dynamic nature of IPv6 means, among other things, that the prefix from which
+an address was formed might become deprecated at any time (and similarly
+could theoretically transition from deprecated back to valid). Applications
+MUST be able to receive notifications of such changes.
+                </t>
+                <t>
+The callback and asynchronous notification mechanisms SHOULD work well with
+the operating systems' popular asynchronous event loop APIs.
+                </t>
+                <t>
+At process exit: release and remove all exclusive-use addresses and mark
+shared-use addresses as deprecated (unless they have been explicitly handed
+out to another application via this API).
+                </t>
+                <t>
+Shared-use addresses may be reused (given back to application in response to
+another request) if no new addresses may be formed. Alternatively, an error
+condition may be signaled.
+                </t>
+            </section>
+        </section>
+
+        <section title="Open Issues">
+            <t>
+This section will be replaced by a summary of discussion of issues rejected
+here.  Decisions adopted will necessarily be incorporated elsewhere in this
+document.
+            </t>
+            <t>
+Should all requests be exclusive, even if not required? This is likely to be
+simpler to implement and manage. Might make it harder to share address use
+among multiple apps if that were desired.
+            </t>
+            <t>
+How to specify requests when multiple prefixes could theoretically be used
+to satisfy the request? Avoid giving the same IID on multiple prefixes, for
+sure.  But otherwise?
+            </t>
+        </section>
 <!--
     <section anchor="simple_list" title="Simple List">
       <t>List styles: 'empty', 'symbols', 'letters', 'numbers', 'hanging',
@@ -270,10 +407,14 @@ main(int argc, char *argv[])
 -->
 
         <section anchor="Acknowledgements" title="Acknowledgements">
+            <t>
+            </t>
         </section>
 
         <section anchor="IANA" title="IANA Considerations">
-            <t>This memo includes no request to IANA.</t>
+            <t>
+This memo includes no request to IANA.
+            </t>
         </section>
 
         <section anchor="Security" title="Security Considerations">
@@ -305,6 +446,8 @@ See <xref target="RFC3552">RFC 3552</xref> for a guide.
 
         <references title="Informative References">
             &RFC3552;
+            &RFC4429;
+            &RFC7873;
             &RFC7934;
 
 <!--
