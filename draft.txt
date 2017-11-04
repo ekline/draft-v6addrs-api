@@ -4,8 +4,8 @@
 
 Internet Engineering Task Force                                 E. Kline
 Internet-Draft                                        Google Japan, G.K.
-Intended status: Experimental                           October 29, 2017
-Expires: May 2, 2018
+Intended status: Experimental                           November 4, 2017
+Expires: May 8, 2018
 
 
                       IPv6 Multiple Addresses API
@@ -34,7 +34,7 @@ Status of This Memo
    time.  It is inappropriate to use Internet-Drafts as reference
    material or to cite them other than as "work in progress."
 
-   This Internet-Draft will expire on May 2, 2018.
+   This Internet-Draft will expire on May 8, 2018.
 
 Copyright Notice
 
@@ -53,9 +53,9 @@ Copyright Notice
 
 
 
-Kline                      Expires May 2, 2018                  [Page 1]
+Kline                      Expires May 8, 2018                  [Page 1]
 
-Internet-Draft               IPv6 Addrs API                 October 2017
+Internet-Draft               IPv6 Addrs API                November 2017
 
 
 Table of Contents
@@ -65,18 +65,19 @@ Table of Contents
    2.  Motivating Use Cases  . . . . . . . . . . . . . . . . . . . .   2
      2.1.  Ephemeral Addresses . . . . . . . . . . . . . . . . . . .   2
      2.2.  Exclusive-use Addresses . . . . . . . . . . . . . . . . .   3
-   3.  Implementation Requirements . . . . . . . . . . . . . . . . .   3
-     3.1.  Meta-requirements . . . . . . . . . . . . . . . . . . . .   3
-     3.2.  Requirements for the API  . . . . . . . . . . . . . . . .   4
-     3.3.  Requirements for Supporting Operating Systems . . . . . .   4
-   4.  Open Issues . . . . . . . . . . . . . . . . . . . . . . . . .   4
-   5.  Acknowledgements  . . . . . . . . . . . . . . . . . . . . . .   5
-   6.  IANA Considerations . . . . . . . . . . . . . . . . . . . . .   5
-   7.  Security Considerations . . . . . . . . . . . . . . . . . . .   5
-   8.  References  . . . . . . . . . . . . . . . . . . . . . . . . .   5
-     8.1.  Normative References  . . . . . . . . . . . . . . . . . .   5
-     8.2.  Informative References  . . . . . . . . . . . . . . . . .   5
-   Appendix A.  Additional Stuff . . . . . . . . . . . . . . . . . .   5
+   3.  API Requirements  . . . . . . . . . . . . . . . . . . . . . .   3
+     3.1.  Request . . . . . . . . . . . . . . . . . . . . . . . . .   4
+     3.2.  Release . . . . . . . . . . . . . . . . . . . . . . . . .   4
+     3.3.  Asynchronous Notification . . . . . . . . . . . . . . . .   4
+   4.  Requirements for Supporting Operating Systems . . . . . . . .   4
+   5.  Open Issues . . . . . . . . . . . . . . . . . . . . . . . . .   5
+   6.  Acknowledgements  . . . . . . . . . . . . . . . . . . . . . .   5
+   7.  IANA Considerations . . . . . . . . . . . . . . . . . . . . .   5
+   8.  Security Considerations . . . . . . . . . . . . . . . . . . .   6
+   9.  References  . . . . . . . . . . . . . . . . . . . . . . . . .   6
+     9.1.  Normative References  . . . . . . . . . . . . . . . . . .   6
+     9.2.  Informative References  . . . . . . . . . . . . . . . . .   6
+   Appendix A.  Additional Stuff . . . . . . . . . . . . . . . . . .   6
    Author's Address  . . . . . . . . . . . . . . . . . . . . . . . .   6
 
 1.  Introduction
@@ -108,14 +109,13 @@ Table of Contents
 
 
 
-
-Kline                      Expires May 2, 2018                  [Page 2]
+Kline                      Expires May 8, 2018                  [Page 2]
 
-Internet-Draft               IPv6 Addrs API                 October 2017
+Internet-Draft               IPv6 Addrs API                November 2017
 
 
-   poisoning attacks in situation where DNS cookies [RFC7873] may not be
-   reliably available.
+   poisoning attacks in situations where DNS cookies [RFC7873] may not
+   be reliably available.
 
    In these cases, specific port reservations are not required.  This
    may be because some explicit bind() will take place upon notification
@@ -141,9 +141,7 @@ Internet-Draft               IPv6 Addrs API                 October 2017
    machine (VM) for which it is attempting to arrange minimal IPv6
    network connectivity.
 
-3.  Implementation Requirements
-
-3.1.  Meta-requirements
+3.  API Requirements
 
    IPv6 addressing can change dynamically in response to changes in the
    network (i.e. due to events other than administrative action on the
@@ -160,36 +158,73 @@ Internet-Draft               IPv6 Addrs API                 October 2017
    interfaces with advertised prefixes from which an address might be
    formed.
 
-   It is a meta-requirement for this API that these complexities MUST be
-   explicitly supported.  Failure to do so would mean the spread of
+   It is therefore a meta-requirement for this API that these
+   complexities MUST be explicitly supported.  Failure to do so would
+   mean the spread of inflexible APIs yielding brittle applications,
+   unable to adapt sensibly to changing network conditions.
 
 
 
-Kline                      Expires May 2, 2018                  [Page 3]
+Kline                      Expires May 8, 2018                  [Page 3]
 
-Internet-Draft               IPv6 Addrs API                 October 2017
+Internet-Draft               IPv6 Addrs API                November 2017
 
 
-   inflexible APIs yielding brittle applications, unable to adapt
-   sensibly to changing network conditions.
+3.1.  Request
 
-3.2.  Requirements for the API
+   An API implementation MUST include a method by which an application
+   can request an address ("ADDR_REQUEST").
 
-   request (type? timeout? callback_mechanism?) yield result or error
-   result might be a token to associate future asynchronous
-   notifications TBD: request specific address? specific IID? release
-   (request::result_type) yield success or error callback_mechanism must
-   notify of address less (deprecation, DAD failures if optimistic addrs
-   in use) must notify of timeout in creating a usable address
+   TODO: possible arguments? address type, timeout, callback function,
+   interface?  Should it be possible to request a specific prefix, or a
+   specific IID on all available prefixes?
 
-3.3.  Requirements for Supporting Operating Systems
+   The return type of the ADDR_REQUEST method must be either an error,
+   if an error can be quickly known (e.g. invalid arguments,
+   insufficient permissions, et cetera) or a token suitable for use in
+   other API calls.
 
-   Supporting host operating systems SHOULD support an asynchronous API.
+3.2.  Release
+
+   An API implementation MUST include a method by which an application
+   can release a previously allocated address ("ADDR_RELEASE").  This
+   method SHOULD take as input the non-error return value from the
+   ADDR_REQUEST method.
+
+3.3.  Asynchronous Notification
+
+   TODO: discussion of requirements for async notifications; callbacks?
+   signals? (shudder) callback_mechanism
+
+   o  MUST notify applications when an address request has been
+      satisfied (if it was not synchronously satisfiable at ADDR_REQUEST
+      time).
+
+   o  MUST notify applications when an address is deprecated, when DAD
+      fails (if optimistic addrs are in use), ... any other time the
+      address becomes unusable.
+
+   o  Similarly, MUST notify applications when an address that has not
+      been released via ADDR_RELEASE becomes usable after a prior
+      unusable notification (e.g. when "un-deprecated" if the prefix
+      lifetime is renewed).
+
+4.  Requirements for Supporting Operating Systems
+
+   Supporting host operating systems MUST support an asynchronous API.
    The dynamic nature of IPv6 means, among other things, that the prefix
    from which an address was formed might become deprecated at any time
    (and similarly could theoretically transition from deprecated back to
    valid).  Applications MUST be able to receive notifications of such
    changes.
+
+
+
+
+Kline                      Expires May 8, 2018                  [Page 4]
+
+Internet-Draft               IPv6 Addrs API                November 2017
+
 
    The callback and asynchronous notification mechanisms SHOULD work
    well with the operating systems' popular asynchronous event loop
@@ -203,7 +238,19 @@ Internet-Draft               IPv6 Addrs API                 October 2017
    response to another request) if no new addresses may be formed.
    Alternatively, an error condition may be signaled.
 
-4.  Open Issues
+   An operating system MAY satisfy ADDR_REQUEST calls with optimistic
+   addresses.  If this is supported, notifications of the failure of
+   this address to become validated (DAD) MUST be delivered to the
+   application.
+
+   An operating system MAY perform additional "usability" checks on an
+   address (beyond just DAD) when asynchronously satisfying an
+   ADDR_REQUEST call.  This might include, for example, verifying
+   Neighbor Unreachability Detection from this address to on-link
+   routers completes successfully.  The operating system might even
+   perform a captive portal connectivity check from this address.
+
+5.  Open Issues
 
    This section will be replaced by a summary of discussion of issues
    rejected here.  Decisions adopted will necessarily be incorporated
@@ -217,36 +264,41 @@ Internet-Draft               IPv6 Addrs API                 October 2017
    used to satisfy the request?  Avoid giving the same IID on multiple
    prefixes, for sure.  But otherwise?
 
+6.  Acknowledgements
 
-
-
-
-Kline                      Expires May 2, 2018                  [Page 4]
-
-Internet-Draft               IPv6 Addrs API                 October 2017
-
-
-5.  Acknowledgements
-
-6.  IANA Considerations
+7.  IANA Considerations
 
    This memo includes no request to IANA.
 
-7.  Security Considerations
+
+
+
+
+
+
+
+Kline                      Expires May 8, 2018                  [Page 5]
+
+Internet-Draft               IPv6 Addrs API                November 2017
+
+
+8.  Security Considerations
+
+   Oh dear, yes, the security implications...
 
    All drafts are required to have a security considerations section.
    See RFC 3552 [RFC3552] for a guide.
 
-8.  References
+9.  References
 
-8.1.  Normative References
+9.1.  Normative References
 
    [RFC2119]  Bradner, S., "Key words for use in RFCs to Indicate
               Requirement Levels", BCP 14, RFC 2119,
               DOI 10.17487/RFC2119, March 1997, <https://www.rfc-
               editor.org/info/rfc2119>.
 
-8.2.  Informative References
+9.2.  Informative References
 
    [RFC3552]  Rescorla, E. and B. Korver, "Guidelines for Writing RFC
               Text on Security Considerations", BCP 72, RFC 3552,
@@ -270,19 +322,21 @@ Appendix A.  Additional Stuff
 
    This becomes an Appendix.
 
-
-
-
-
-
-
-
-Kline                      Expires May 2, 2018                  [Page 5]
-
-Internet-Draft               IPv6 Addrs API                 October 2017
-
-
 Author's Address
+
+
+
+
+
+
+
+
+
+
+Kline                      Expires May 8, 2018                  [Page 6]
+
+Internet-Draft               IPv6 Addrs API                November 2017
+
 
    Erik Kline
    Google Japan, G.K.
@@ -333,4 +387,6 @@ Author's Address
 
 
 
-Kline                      Expires May 2, 2018                  [Page 6]
+
+
+Kline                      Expires May 8, 2018                  [Page 7]

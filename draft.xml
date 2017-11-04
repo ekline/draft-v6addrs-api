@@ -103,7 +103,7 @@ These may be desirable for privacy purposes, injecting some measure of
 randomness into communications, or for tracking application activity on a
 per-application basis. One hypothetical example might be a DNS recursive
 resolver that spreads queries across multiple addresses in order to increase
-its resistance to cache-poisoning attacks in situation where
+its resistance to cache-poisoning attacks in situations where
 <xref target="RFC7873">DNS cookies</xref> may not be reliably available.
                 </t>
                 <t>
@@ -135,9 +135,8 @@ network connectivity.
             </section>
         </section>
 
-        <section title="Implementation Requirements">
-            <section title="Meta-requirements">
-                <t>
+        <section title="API Requirements">
+            <t>
 IPv6 addressing can change dynamically in response to changes in the network
 (i.e. due to events other than administrative action on the host itself). If
 IPv6 optimistic addresses (<xref target="RFC4429"/>) are used, an address might
@@ -146,57 +145,102 @@ IPv6 prefixes from which addresses are formed might become deprecated via
 Router Advertisements (and may also transition from deprecated back to valid)
 or they may expire when a delegated prefix expires (e.g. without a successful
 DHCPv6 renewal).
-                </t>
-                <t>
+            </t>
+            <t>
 Similarly, multiple IPv6 prefixes may be available for creating addresses via
 this API.  There may also be multiple network interfaces with advertised
 prefixes from which an address might be formed.
-                </t>
-                <t>
-It is a meta-requirement for this API that these complexities MUST be
-explicitly supported. Failure to do so would mean the spread of inflexible
+            </t>
+            <t>
+It is therefore a meta-requirement for this API that these complexities MUST
+be explicitly supported. Failure to do so would mean the spread of inflexible
 APIs yielding brittle applications, unable to adapt sensibly to changing
 network conditions.
+            </t>
+
+            <section title="Request">
+                <t>
+An API implementation MUST include a method by which an application can request
+an address ("ADDR_REQUEST").
+                </t>
+                <t>
+TODO: possible arguments? address type, timeout, callback function, interface?
+Should it be possible to request a specific prefix, or a specific IID on all
+available prefixes?
+                </t>
+                <t>
+The return type of the ADDR_REQUEST method must be either an error, if an
+error can be quickly known (e.g. invalid arguments, insufficient permissions,
+et cetera) or a token suitable for use in other API calls.
                 </t>
             </section>
-
-            <section title="Requirements for the API">
+            <section title="Release">
                 <t>
-request (type? timeout? callback_mechanism?)
-    yield result or error
-    result might be a token to associate future asynchronous notifications
-    TBD: request specific address? specific IID?
-release (request::result_type)
-    yield success or error
+An API implementation MUST include a method by which an application can release
+a previously allocated address ("ADDR_RELEASE"). This method SHOULD take as
+input the non-error return value from the ADDR_REQUEST method.
+                </t>
+            </section>
+            <section title="Asynchronous Notification">
+                <t>
+TODO: discussion of requirements for async notifications; callbacks?
+signals? (shudder)
 callback_mechanism
-    must notify of address less (deprecation, DAD failures if optimistic addrs in use)
-    must notify of timeout in creating a usable address
+                </t>
+                <t>
+                    <list style="symbols">
+                        <t>
+MUST notify applications when an address request has been satisfied (if it was
+not synchronously satisfiable at ADDR_REQUEST time).
+                        </t>
+                        <t>
+MUST notify applications when an address is deprecated, when DAD fails (if
+optimistic addrs are in use), ... any other time the address becomes unusable.
+                        </t>
+                        <t>
+Similarly, MUST notify applications when an address that has not been released
+via ADDR_RELEASE becomes usable after a prior unusable notification
+(e.g. when "un-deprecated" if the prefix lifetime is renewed).
+                        </t>
+                    </list>
                 </t>
             </section>
+        </section>
 
-            <section title="Requirements for Supporting Operating Systems">
-                <t>
-Supporting host operating systems SHOULD support an asynchronous API. The
+        <section title="Requirements for Supporting Operating Systems">
+            <t>
+Supporting host operating systems MUST support an asynchronous API. The
 dynamic nature of IPv6 means, among other things, that the prefix from which
 an address was formed might become deprecated at any time (and similarly
 could theoretically transition from deprecated back to valid). Applications
 MUST be able to receive notifications of such changes.
-                </t>
-                <t>
+            </t>
+            <t>
 The callback and asynchronous notification mechanisms SHOULD work well with
 the operating systems' popular asynchronous event loop APIs.
-                </t>
-                <t>
+            </t>
+            <t>
 At process exit: release and remove all exclusive-use addresses and mark
 shared-use addresses as deprecated (unless they have been explicitly handed
 out to another application via this API).
-                </t>
-                <t>
+            </t>
+            <t>
 Shared-use addresses may be reused (given back to application in response to
 another request) if no new addresses may be formed. Alternatively, an error
 condition may be signaled.
-                </t>
-            </section>
+            </t>
+            <t>
+An operating system MAY satisfy ADDR_REQUEST calls with optimistic addresses.
+If this is supported, notifications of the failure of this address to become
+validated (DAD) MUST be delivered to the application.
+            </t>
+            <t>
+An operating system MAY perform additional "usability" checks on an address
+(beyond just DAD) when asynchronously satisfying an ADDR_REQUEST call. This
+might include, for example, verifying Neighbor Unreachability Detection from
+this address to on-link routers completes successfully. The operating system
+might even perform a captive portal connectivity check from this address.
+            </t>
         </section>
 
         <section title="Open Issues">
@@ -418,6 +462,9 @@ This memo includes no request to IANA.
         </section>
 
         <section anchor="Security" title="Security Considerations">
+            <t>
+Oh dear, yes, the security implications...
+            </t>
             <t>
 All drafts are required to have a security considerations section.
 See <xref target="RFC3552">RFC 3552</xref> for a guide.
