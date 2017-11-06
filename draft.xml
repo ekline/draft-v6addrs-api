@@ -73,6 +73,15 @@ supporting such an API.
         </abstract>
     </front>
 
+<!--
+
+- specify what happens to requests at process fork time
+- specify that they are all privacy addrs, period.
+- add per-origin example
+- perhaps add ifup/ifdown API, since ifname might be a required argument
+
+-->
+
     <middle>
         <section title="Introduction">
             <t>
